@@ -1,0 +1,168 @@
+<template>
+  <div class="work_order_management">
+    <div class="content">
+      <div class="search-box">
+        <search
+          class='search'
+          :searchConfig='searchConfig'
+          :searchBtn='true'
+          @goSearch='goSearch'
+        ></search>
+        <div class="top-time manage-data-picker"
+          :class="{'data-picker':dataPickerPosition}"
+        >
+          <div class="label">
+            <span>工单认领时间:</span>
+          </div>
+          <date-picker
+            v-if="showDate"
+            :pickerData='pickerData'
+          ></date-picker>
+        </div>
+        <div class="manage-data-picker"
+           :class="{'data-picker':dataPickerPosition}"
+        >
+          <div class="label">
+            <span>工单提交时间:</span>
+          </div>
+          <date-picker
+            v-if="showDate"
+            :pickerData='workSumitData'
+          ></date-picker>
+        </div>
+      </div>
+      <div class="operatBtn">
+        <am-button
+          v-if="powerObj.batch_dispatch"
+          @click='goHandOut'
+          class='btn'>分派任务
+        </am-button>
+        <am-button
+          v-if='powerObj.patrol_import_template'
+          class='btn'
+          @click="templateClick">巡检导入模板下载
+        </am-button>
+        <am-button
+          v-if='powerObj.download_inspection_order_detail'
+          class='btn'
+          @click="orderTemplateClick">巡检工单下载
+        </am-button>
+        <am-button
+          v-if='powerObj.batch_dispatch_template'
+          class='btn'
+          @click="batchDispatchTemplate">批量派单模板下载
+        </am-button>
+        <am-button
+          v-if='powerObj.inspection_import_batch_dispatch'
+          class='btn'
+          @click="batchDispatchClick">批量派单
+        </am-button>
+        <div class="btnFile" v-if='powerObj.batch_import'>
+          <am-button class='btn'>巡检导入</am-button>
+          <input ref="batchCreateFile" class="file" type="file" accept=".xlsx"  @change="batchCreate($event)">
+        </div>
+      </div>
+      <column-select :column-option="columnOption" @select-column="selectColumn"></column-select>
+      <y-table-vertify
+        :totalWidth="tableWidth"
+        :paginationOption='paginationOption'
+        :option='option'
+        :operateList='operateList'
+        :config='config'
+        :data='tableData'
+        @operate-method='tableDetail'
+        @page-change='pageChange'
+        @selectData="selectData"
+      ></y-table-vertify>
+      <am-modal v-if="modalShow" class="inspection-modal">
+        <div class="manage-detail">
+          <inspection-detail
+            :detailData="detailData"
+            :baseSearch="baseSearchData"
+          ></inspection-detail>
+          <div class="operate">
+            <am-button
+              v-if="detailData.orderState === 'NO_MERCHANT'"
+              :active='true'
+              @click='releaseMission(detailData)'
+              class="btn"
+            >释放任务
+            </am-button>
+            <am-button
+              :active='true'
+              @click='cancel'
+              class="btn"
+            >关闭
+            </am-button>
+          </div>
+        </div>
+      </am-modal>
+      <am-modal v-if='handOutModal' class='hand-out-modal'>
+        <div class="manage-detail">
+          <div class="hand-out-detail">
+            <div class="title"><span>分派任务</span></div>
+            <p><span>提示:对选中的多个工单进行批量修改</span></p>
+            <div class="search">
+              <div class="detail">
+                <span>指派代理商账号/名称:</span>
+                <hand-out-select
+                  class='select'
+                  v-model="agentId"
+                  :remote-method="agentRemoteMethod"
+                  :data='agentData'
+                  :defaultValue="agentIdDefaultValue"
+                  :labelField='"merchantName"'
+                  :valueField='"merchantCode"'
+                ></hand-out-select>
+              </div>
+              <div class="detail">
+                <span>指派员工账号/名称:</span>
+                <hand-out-select
+                  class='select'
+                  v-model="userId"
+                  :remote-method="remoteMethod"
+                  :data='userData'
+                  :defaultValue="userIdDefaultValue"
+                  :labelField='"employeeFullName"'
+                  :valueField='"employeeId"'
+                  :disabled="disabledUserId"
+                ></hand-out-select>
+              </div>
+            </div>
+          </div>
+          <div class="operate">
+            <am-button
+                    :active='true'
+                    @click='handOutConfirm'
+                    class='btn'>分派
+            </am-button>
+            <am-button
+                    :active='true'
+                    @click='handOutModal = false'
+                    class='btn'>取消
+            </am-button>
+          </div>
+        </div>
+      </am-modal>
+      <!-- 批量派单 -->
+      <am-modal v-show="batchDispatchModal" class="batch-dispatch-modal">
+        <div class="batch-dispatch">
+          <span class="close-btn" @click="closeBtn">×</span>
+          <div class="explain">
+            <p class="explain-title">操作说明：</p>
+            <p class="explain-conter">1.建议一次最多导入10000条工单；</p>
+            <p class="explain-conter">2.批量派单模板中标黄字段为必填项；</p>
+            <p class="explain-conter">3.只能分派状态为【未分派】的工单；</p>
+            <p class="explain-conter">4.如果给公司自有员工派单，填写公司自身代理商编号以及员工账号；</p>
+            <p class="explain-conter">5.如果给代理商派单，只需填写代理商编号，无需填写员工账号；</p>
+          </div>
+          <div class="btnFile">
+            <am-button class='btn' :active='true'>导入工单</am-button>
+            <input ref="batchDispatchFile" class="file" type="file" accept=".xlsx"  @change="batchDispatchCreate($event)">
+          </div>
+        </div>
+      </am-modal>
+    </div>
+    <x-dialog :isshowDialog="isShowDialog" @cancel="cancelDialog" @revokeOrallot="deleteBatch" :dialogText="'您是否确认删除'"></x-dialog>
+  </div>
+</template>
